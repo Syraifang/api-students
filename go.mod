@@ -2,7 +2,10 @@ module api-students
 
 go 1.26.6
 
-require github.com/gofiber/fiber/v2 v2.52.15
+require (
+	github.com/gofiber/fiber/v2 v2.52.15
+	github.com/joho/godotenv v1.5.1
+)
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
