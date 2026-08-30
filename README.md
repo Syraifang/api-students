@@ -1,16 +1,38 @@
-# Students API - Praktikum Backend Lanjut Modul 2
+# Praktikum Backend - Students API (Pertemuan 3)
 
-Repositori ini berisi RESTful API sederhana yang dibangun menggunakan bahasa Go dan menggunakan kerangka kerja (framework) **Fiber v2** serta penyimpanan berbasis memori sementara.
+API ini dibuat menggunakan Go Fiber dan PostgreSQL dengan mengimplementasikan arsitektur Repository Pattern.
 
-## Dokumen Kontrak API
+## Persiapan database
 
-Berikut adalah kontrak API lengkap untuk mengakses layanan Students:
+Untuk menjalankan aplikasi ini secara lokal, Anda harus membuat database kosong terlebih dahulu di PostgreSQL:
 
-| Metode | Endpoint | Parameter / Query | Contoh Body Permintaan (Request Body) | Status HTTP | Contoh Respons (Response Body) |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **GET** | `/api/v1/students` | `page`, `limit`, `search`, `sort`, `order`, `is_active` | *Tidak ada* | `200 OK` | `{"success":true, "message":"daftar mahasiswa berhasil diambil", "data":[...], "meta":{...}}` |
-| **GET** | `/api/v1/students/:id` | `id` (pada URL) | *Tidak ada* | `200 OK`<br>`404 Not Found` | `{"success":true, "message":"mahasiswa ditemukan", "data":{...}}` |
-| **POST** | `/api/v1/students` | *Tidak ada* | `{"nim":"123456789", "name":"John Doe", "grade":95.5, "is_active":true}` | `201 Created`<br>`400 Bad Request`<br>`409 Conflict`<br>`415 Unsupported Media Type`<br>`422 Unprocessable Entity` | `{"success":true, "message":"mahasiswa berhasil dibuat", "data":{...}}` |
-| **PUT** | `/api/v1/students/:id` | `id` (pada URL) | `{"nim":"123456789", "name":"John Doe (PUT)", "grade":80.0, "is_active":false}` | `200 OK`<br>`400 Bad Request`<br>`404 Not Found`<br>`409 Conflict`<br>`415 Unsupported Media Type`<br>`422 Unprocessable Entity` | `{"success":true, "message":"data mahasiswa berhasil diganti seluruhnya", "data":{...}}` |
-| **PATCH** | `/api/v1/students/:id` | `id` (pada URL) | `{"is_active":true}` | `200 OK`<br>`400 Bad Request`<br>`404 Not Found`<br>`409 Conflict`<br>`415 Unsupported Media Type`<br>`422 Unprocessable Entity` | `{"success":true, "message":"data mahasiswa berhasil diperbarui sebagian", "data":{...}}` |
-| **DELETE** | `/api/v1/students/:id` | `id` (pada URL) | *Tidak ada* | `204 No Content`<br>`400 Bad Request`<br>`404 Not Found` | *(Kosong / Tanpa bodi respons)* |
+1. Buka terminal/psql dan jalankan:
+   `CREATE DATABASE api_students;`
+2. Jalankan file migrasi untuk membuat tabel dan indeks:
+   `psql -U postgres -d api_students -f migrations/001_create_students.sql`
+
+## Skema Tabel (students)
+
+| Kolom | Tipe Data | Keterangan |
+| :--- | :--- | :--- |
+| `id` | SERIAL | Primary Key |
+| `nim` | VARCHAR(20) | UNIQUE, NOT NULL |
+| `name` | VARCHAR(100) | NOT NULL |
+| `grade` | VARCHAR(2) | NOT NULL |
+| `is_active` | BOOLEAN | NOT NULL, DEFAULT TRUE |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() |
+
+*Terdapat juga indeks tambahan pada kolom `name` (LOWER) untuk mempercepat pencarian (ILIKE).*
+
+## Konfigurasi Environment (.env)
+
+Buat file `.env` di *root* direktori (sejajar dengan `main.go`) dan isi dengan variabel berikut (lihat `.env.example` sebagai referensi):
+
+*   `APP_PORT`: Port untuk menjalankan server (contoh: 3000)
+*   `DB_HOST`: Host database (contoh: localhost)
+*   `DB_PORT`: Port PostgreSQL (contoh: 5432)
+*   `DB_USER`: Username PostgreSQL (contoh: postgres)
+*   `DB_PASSWORD`: Kata sandi user
+*   `DB_NAME`: Nama database (api_students)
+*   `DB_SSLMODE`: Mode SSL (disable)
+*   `DB_MAX_CONNS`: Batas maksimal koneksi *pool* (contoh: 10)

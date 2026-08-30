@@ -1,14 +1,20 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
+
+	// Sesuaikan dengan nama module di go.mod
+	"api-students/app/repository"
+	"api-students/config"
+	"api-students/database"
 )
 
 var metodeBerbody = map[string]bool{
@@ -17,7 +23,6 @@ var metodeBerbody = map[string]bool{
 	fiber.MethodPatch: true,
 }
 
-// Middleware untuk menolak request yang body-nya bukan JSON
 func requireJSON(c *fiber.Ctx) error {
 	if metodeBerbody[c.Method()] {
 		ct := c.Get("Content-Type")
@@ -29,8 +34,23 @@ func requireJSON(c *fiber.Ctx) error {
 }
 
 func main() {
+	// 1. Konfigurasi
+	config.LoadEnv()
+
+	// 2. Koneksi basis data
+	pool, err := database.NewPool(context.Background())
+	if err != nil {
+		log.Fatalf("database error: %v", err)
+	}
+	defer pool.Close()
+
+	// 3. Perakitan: pool -> repository -> handler
+	studentRepo := repository.NewStudentRepository(pool)
+	studentHandler := NewStudentHandler(studentRepo)
+
+	// 4. Inisialisasi Fiber
 	app := fiber.New(fiber.Config{
-		AppName: "Praktikum Backend Lanjut Pertemuan 2 - Students API",
+		AppName: "Praktikum Backend Lanjut - Students API",
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			status := fiber.StatusInternalServerError
 			pesan := "terjadi kesalahan pada server"
@@ -43,32 +63,40 @@ func main() {
 		},
 	})
 
-	// Middleware Global
 	app.Use(requestid.New())
 	app.Use(logger.New(logger.Config{
 		Format: "[${time}] ${locals:requestid} ${method} ${path} ${status} ${latency}\n",
 	}))
 	app.Use(cors.New())
 
-	// Rute API Group
 	api := app.Group("/api/v1")
 
-	// Terapkan requireJSON khusus untuk endpoint students
+	// Endpoint Health yang ikut mengecek database
+	api.Get("/health", func(c *fiber.Ctx) error {
+		ctx, cancel := context.WithTimeout(c.UserContext(), 2*time.Second)
+		defer cancel()
+		
+		if err := pool.Ping(ctx); err != nil {
+			return fail(c, fiber.StatusServiceUnavailable, "database tidak dapat dihubungi")
+		}
+		return ok(c, "server dan database berjalan dengan baik", nil)
+	})
+
 	s := api.Group("/students", requireJSON)
 
-	// Daftarkan rute ke fungsi handler
-	s.Get("/", listStudents)
-	s.Get("/:id", getStudent)
-	s.Post("/", createStudent)
-	s.Put("/:id", replaceStudent)
-	s.Patch("/:id", patchStudent)
-	s.Delete("/:id", deleteStudent)
+	// Rute dialihkan ke method milik studentHandler yang baru
+	s.Get("/", studentHandler.List)
+	s.Get("/:id", studentHandler.Get)
+	s.Post("/", studentHandler.Create)
+	s.Put("/:id", studentHandler.Replace)
+	s.Patch("/:id", studentHandler.Patch)
+	s.Delete("/:id", studentHandler.Delete)
 
-	// Fallback untuk rute yang tidak ditemukan (404)
 	app.Use(func(c *fiber.Ctx) error {
 		return fail(c, fiber.StatusNotFound, "endpoint tidak ditemukan")
 	})
 
-	fmt.Println("Server API Student berjalan di http://localhost:3000")
-	log.Fatal(app.Listen(":3000"))
+	port := config.GetEnv("APP_PORT", "3000")
+	log.Printf("Server API berjalan di http://localhost:%s", port)
+	log.Fatal(app.Listen(":" + port))
 }
