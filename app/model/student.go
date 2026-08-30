@@ -1,36 +1,39 @@
 package model
 
-// Student adalah entitas utama di dalam memori
+import "time"
+
+// Student adalah entitas utama yang sekarang terhubung ke PostgreSQL
 type Student struct {
-	ID       int     `json:"id"`
-	NIM      string  `json:"nim"`
-	Name     string  `json:"name"`
-	Grade    float64 `json:"grade"`
-	IsActive bool    `json:"is_active"`
+	ID        int       `json:"id"`
+	NIM       string    `json:"nim"`
+	Name      string    `json:"name"`
+	Grade     string    `json:"grade"` // Diubah menjadi string menyesuaikan VARCHAR(2)
+	IsActive  bool      `json:"is_active"`
+	CreatedAt time.Time `json:"created_at"` // Kolom baru dari database
 }
 
 // CreateStudentRequest untuk metode POST (semua wajib)
 type CreateStudentRequest struct {
-	NIM      string  `json:"nim"`
-	Name     string  `json:"name"`
-	Grade    float64 `json:"grade"`
-	IsActive bool    `json:"is_active"`
+	NIM      string `json:"nim"`
+	Name     string `json:"name"`
+	Grade    string `json:"grade"`
+	IsActive bool   `json:"is_active"`
 }
 
 // ReplaceStudentRequest untuk metode PUT (ganti seluruhnya, semua wajib)
 type ReplaceStudentRequest struct {
-	NIM      string  `json:"nim"`
-	Name     string  `json:"name"`
-	Grade    float64 `json:"grade"`
-	IsActive bool    `json:"is_active"`
+	NIM      string `json:"nim"`
+	Name     string `json:"name"`
+	Grade    string `json:"grade"`
+	IsActive bool   `json:"is_active"`
 }
 
 // PatchStudentRequest untuk metode PATCH (ubah sebagian, pakai pointer)
 type PatchStudentRequest struct {
-	NIM      *string  `json:"nim,omitempty"`
-	Name     *string  `json:"name,omitempty"`
-	Grade    *float64 `json:"grade,omitempty"`
-	IsActive *bool    `json:"is_active,omitempty"`
+	NIM      *string `json:"nim,omitempty"`
+	Name     *string `json:"name,omitempty"`
+	Grade    *string `json:"grade,omitempty"`
+	IsActive *bool   `json:"is_active,omitempty"`
 }
 
 // Amplop baku untuk semua respons API
@@ -63,5 +66,5 @@ type ListQuery struct {
 // Offset menghitung berapa baris yang dilewati untuk halaman ini.
 // Perhitungan ini pindah ke sini karena kini dipakai langsung oleh SQL.
 func (q ListQuery) Offset() int {
-    return (q.Page - 1) * q.Limit
+	return (q.Page - 1) * q.Limit
 }
