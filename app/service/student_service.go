@@ -100,3 +100,91 @@ func translateError(c *fiber.Ctx, err error, generalMessage string) error {
 		return helper.Fail(c, fiber.StatusInternalServerError, generalMessage)
 	}
 }
+
+func (s *StudentService) Replace(c *fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	id, valid := helper.ParamID(c)
+	if !valid {
+		return helper.Fail(c, fiber.StatusBadRequest, "id harus berupa angka positif")
+	}
+
+	var req model.ReplaceStudentRequest
+	if err := c.BodyParser(&req); err != nil {
+		return helper.Fail(c, fiber.StatusBadRequest, "body harus berupa JSON yang valid")
+	}
+
+	// Panggil validasi murni dari student_rules.go
+	if errs := ValidateReplace(req); len(errs) > 0 {
+		return helper.FailValidation(c, errs)
+	}
+
+	result, err := s.repo.Update(ctx, model.Student{
+		ID:       id,
+		NIM:      strings.TrimSpace(req.NIM),
+		Name:     strings.TrimSpace(req.Name),
+		Grade:    strings.TrimSpace(req.Grade),
+		IsActive: req.IsActive,
+	})
+
+	if err != nil {
+		return translateError(c, err, "gagal memperbarui mahasiswa")
+	}
+
+	return helper.Success(c, fiber.StatusOK, "mahasiswa berhasil diganti seluruhnya", result)
+}
+
+func (s *StudentService) Patch(c *fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	id, valid := helper.ParamID(c)
+	if !valid {
+		return helper.Fail(c, fiber.StatusBadRequest, "id harus berupa angka positif")
+	}
+
+	var req model.PatchStudentRequest
+	if err := c.BodyParser(&req); err != nil {
+		return helper.Fail(c, fiber.StatusBadRequest, "body harus berupa JSON yang valid")
+	}
+
+	// Panggil pengecekan murni dari student_rules.go
+	if IsEmptyPatch(req) {
+		return helper.Fail(c, fiber.StatusBadRequest, "tidak ada field yang diubah")
+	}
+
+	current, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return translateError(c, err, "gagal mengambil data mahasiswa")
+	}
+
+	// Terapkan perubahan (patch)
+	updated, errs := ApplyPatch(current, req)
+	if len(errs) > 0 {
+		return helper.FailValidation(c, errs)
+	}
+
+	result, err := s.repo.Update(ctx, updated)
+	if err != nil {
+		return translateError(c, err, "gagal memperbarui mahasiswa")
+	}
+
+	return helper.Success(c, fiber.StatusOK, "mahasiswa berhasil diperbarui sebagian", result)
+}
+
+func (s *StudentService) Delete(c *fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	id, valid := helper.ParamID(c)
+	if !valid {
+		return helper.Fail(c, fiber.StatusBadRequest, "id harus berupa angka positif")
+	}
+
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return translateError(c, err, "gagal menghapus mahasiswa")
+	}
+
+	return helper.NoContent(c)
+}
