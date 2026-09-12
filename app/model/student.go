@@ -10,6 +10,8 @@ type Student struct {
 	Grade     string    `json:"grade"` // Diubah menjadi string menyesuaikan VARCHAR(2)
 	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"` // Kolom baru dari database
+	Password string `json:"password,omitempty"`
+	Role     string `json:"role,omitempty"`
 }
 
 // CreateStudentRequest untuk metode POST (semua wajib)
@@ -67,4 +69,13 @@ type ListQuery struct {
 // Perhitungan ini pindah ke sini karena kini dipakai langsung oleh SQL.
 func (q ListQuery) Offset() int {
 	return (q.Page - 1) * q.Limit
+}
+
+type LoginRequest struct {
+	NIM      string `json:"nim"`
+	Password string `json:"password"`
+}
+
+type AuthResponse struct {
+	Token string `json:"token"`
 }
