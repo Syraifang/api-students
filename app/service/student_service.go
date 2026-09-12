@@ -188,3 +188,23 @@ func (s *StudentService) Delete(c *fiber.Ctx) error {
 
 	return helper.NoContent(c)
 }
+
+func (s StudentService) GetPrestasi(c *fiber.Ctx) error {
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	// 1. Ambil ID mahasiswa dari URL (misal: /api/v1/students/1/prestasi)
+	id, err := c.ParamsInt("id")
+	if err != nil || id <= 0 {
+		return helper.Fail(c, fiber.StatusBadRequest, "id mahasiswa harus berupa angka positif")
+	}
+
+	// 2. Panggil query dari repository
+	listPrestasi, err := s.repo.FindPrestasiByStudentID(ctx, id)
+	if err != nil {
+		return helper.Fail(c, fiber.StatusInternalServerError, "gagal mengambil data prestasi mahasiswa")
+	}
+
+	// 3. Kembalikan respons sukses beserta datanya
+	return helper.Success(c, fiber.StatusOK, "data prestasi berhasil diambil", listPrestasi)
+}

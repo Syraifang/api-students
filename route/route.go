@@ -28,6 +28,7 @@ func Register(app *fiber.App, pool *pgxpool.Pool, studentService *service.Studen
 	students.Put("/:id", studentService.Replace)
 	students.Patch("/:id", studentService.Patch)
 	students.Delete("/:id", studentService.Delete)
+	students.Get("/:id/prestasi", studentService.GetPrestasi)
 }
 
 // healthCheck melaporkan kondisi layanan beserta databasenya.

@@ -24,6 +24,7 @@ type StudentRepository interface {
 	Create(ctx context.Context, s model.Student) (model.Student, error)
 	Update(ctx context.Context, s model.Student) (model.Student, error)
 	Delete(ctx context.Context, id int) error
+	FindPrestasiByStudentID(ctx context.Context, studentID int) ([]model.Prestasi, error)
 }
 
 var kolomUrut = map[string]string{
@@ -104,7 +105,7 @@ func (r *studentPostgresRepository) FindAll(ctx context.Context, q model.ListQue
 func (r *studentPostgresRepository) FindByID(ctx context.Context, id int) (model.Student, error) {
 	var s model.Student
 	err := r.pool.QueryRow(ctx,
-		"SELECT id, nim, name, grade, is_active, created_at FROM prestasi WHERE id = $1", id,
+		"SELECT id, nim, name, grade, is_active, created_at FROM students WHERE id = $1", id,
 	).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt)
 
 	if err != nil {
@@ -119,7 +120,7 @@ func (r *studentPostgresRepository) FindByID(ctx context.Context, id int) (model
 // 4. Menyimpan Data Baru (Create)[cite: 1]
 func (r *studentPostgresRepository) Create(ctx context.Context, s model.Student) (model.Student, error) {
 	err := r.pool.QueryRow(ctx,
-		"INSERT INTO prestasi (nim, name, grade, is_active) VALUES ($1, $2, $3, $4) RETURNING id, created_at",
+		"INSERT INTO students (nim, name, grade, is_active) VALUES ($1, $2, $3, $4) RETURNING id, created_at",
 		s.NIM, s.Name, s.Grade, s.IsActive,
 	).Scan(&s.ID, &s.CreatedAt)
 
@@ -135,7 +136,7 @@ func (r *studentPostgresRepository) Create(ctx context.Context, s model.Student)
 // 5. Memperbarui Data (Update)[cite: 1]
 func (r *studentPostgresRepository) Update(ctx context.Context, s model.Student) (model.Student, error) {
 	err := r.pool.QueryRow(ctx,
-		"UPDATE prestasi SET nim = $1, name = $2, grade = $3, is_active = $4 WHERE id = $5 RETURNING id, nim, name, grade, is_active, created_at",
+		"UPDATE students SET nim = $1, name = $2, grade = $3, is_active = $4 WHERE id = $5 RETURNING id, nim, name, grade, is_active, created_at",
 		s.NIM, s.Name, s.Grade, s.IsActive, s.ID,
 	).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.CreatedAt)
 
@@ -170,4 +171,25 @@ func isUniqueViolation(err error) bool {
 		return pgErr.Code == "23505"
 	}
 	return false
+}
+
+func (r *studentPostgresRepository) FindPrestasiByStudentID(ctx context.Context, studentID int) ([]model.Prestasi, error) {
+	query := `SELECT id, student_id, nama_prestasi, juara FROM prestasi WHERE student_id = $1`
+	
+	rows, err := r.pool.Query(ctx, query, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []model.Prestasi
+	for rows.Next() {
+		var p model.Prestasi
+		if err := rows.Scan(&p.ID, &p.StudentID, &p.NamaPrestasi, &p.Juara); err != nil {
+			return nil, err
+		}
+		list = append(list, p)
+	}
+	
+	return list, rows.Err()
 }
