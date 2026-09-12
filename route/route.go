@@ -9,19 +9,15 @@ import (
 	"api-students/app/service" // Sesuaikan nama module jika beda
 	"api-students/helper"      // Sesuaikan nama module jika beda
 	"api-students/middleware"  // Sesuaikan nama module jika beda
+	"api-students/app/repository"
 )
 
-// Register memetakan URL ke method pada service.
-// Perhatikan: tidak ada logika bisnis atau query di sini.
 func Register(app *fiber.App, pool *pgxpool.Pool, studentService *service.StudentService) {
 	api := app.Group("/api/v1")
 	
-	// Route untuk mengecek kesehatan server dan database
 	api.Get("/health", healthCheck(pool))
 
-	// Group route untuk students dengan middleware RequireJSON
 	students := api.Group("/students", middleware.RequireJSON)
-	
 	students.Get("/", studentService.List)
 	students.Get("/:id", studentService.Get)
 	students.Post("/", studentService.Create)
@@ -29,6 +25,15 @@ func Register(app *fiber.App, pool *pgxpool.Pool, studentService *service.Studen
 	students.Patch("/:id", studentService.Patch)
 	students.Delete("/:id", studentService.Delete)
 	students.Get("/:id/prestasi", studentService.GetPrestasi)
+
+	// 1. Rakit StudentRepo dan AuthService di sini menggunakan 'pool' yang ada
+	studentRepo := repository.NewStudentRepository(pool)
+	authService := service.NewAuthService(studentRepo) 
+
+	// 2. Sambungkan rute keamanan ke grup 'api' yang sudah ada
+	auth := api.Group("/auth")
+	auth.Post("/register", authService.Register)
+	auth.Post("/login", authService.Login)
 }
 
 // healthCheck melaporkan kondisi layanan beserta databasenya.
