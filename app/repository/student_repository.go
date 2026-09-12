@@ -25,6 +25,7 @@ type StudentRepository interface {
 	Update(ctx context.Context, s model.Student) (model.Student, error)
 	Delete(ctx context.Context, id int) error
 	FindPrestasiByStudentID(ctx context.Context, studentID int) ([]model.Prestasi, error)
+	FindByNIM(ctx context.Context, nim string) (model.Student, error)
 }
 
 var kolomUrut = map[string]string{
@@ -119,9 +120,10 @@ func (r *studentPostgresRepository) FindByID(ctx context.Context, id int) (model
 
 // 4. Menyimpan Data Baru (Create)[cite: 1]
 func (r *studentPostgresRepository) Create(ctx context.Context, s model.Student) (model.Student, error) {
+	// Query kita tambahkan password dan role
 	err := r.pool.QueryRow(ctx,
-		"INSERT INTO students (nim, name, grade, is_active) VALUES ($1, $2, $3, $4) RETURNING id, created_at",
-		s.NIM, s.Name, s.Grade, s.IsActive,
+		"INSERT INTO students (nim, name, grade, is_active, password, role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at",
+		s.NIM, s.Name, s.Grade, s.IsActive, s.Password, s.Role,
 	).Scan(&s.ID, &s.CreatedAt)
 
 	if err != nil {
@@ -192,4 +194,16 @@ func (r *studentPostgresRepository) FindPrestasiByStudentID(ctx context.Context,
 	}
 	
 	return list, rows.Err()
+}
+
+func (r *studentPostgresRepository) FindByNIM(ctx context.Context, nim string) (model.Student, error) {
+	var s model.Student
+	err := r.pool.QueryRow(ctx,
+		"SELECT id, nim, name, grade, is_active, password, role, created_at FROM students WHERE nim = $1", nim,
+	).Scan(&s.ID, &s.NIM, &s.Name, &s.Grade, &s.IsActive, &s.Password, &s.Role, &s.CreatedAt)
+
+	if err != nil {
+		return model.Student{}, err
+	}
+	return s, nil
 }
