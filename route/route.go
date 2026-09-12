@@ -17,7 +17,7 @@ func Register(app *fiber.App, pool *pgxpool.Pool, studentService *service.Studen
 	
 	api.Get("/health", healthCheck(pool))
 
-	students := api.Group("/students", middleware.RequireJSON)
+	students := api.Group("/students", middleware.RequireJSON, middleware.RequireAuth)
 	students.Get("/", studentService.List)
 	students.Get("/:id", studentService.Get)
 	students.Post("/", studentService.Create)
