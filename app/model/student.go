@@ -7,11 +7,12 @@ type Student struct {
 	ID        int       `json:"id"`
 	NIM       string    `json:"nim"`
 	Name      string    `json:"name"`
-	Grade     string    `json:"grade"` // Diubah menjadi string menyesuaikan VARCHAR(2)
+	Grade     string    `json:"grade"`
 	IsActive  bool      `json:"is_active"`
-	CreatedAt time.Time `json:"created_at"` // Kolom baru dari database
-	Password string `json:"password,omitempty"`
-	Role     string `json:"role,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	Password  string    `json:"password,omitempty"`
+	Role      string    `json:"role,omitempty"`
+	OwnerID   int       `json:"owner_id"` // <-- Tambahkan baris ini
 }
 
 // CreateStudentRequest untuk metode POST (semua wajib)

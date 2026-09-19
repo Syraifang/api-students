@@ -44,7 +44,8 @@ func main() {
 
 	// 3. Perakitan dari dalam ke luar: repository -> service
 	studentRepository := repository.NewStudentRepository(pool)
-	studentService := service.NewStudentService(studentRepository)
+	// TAMBAHKAN variabel 'permissions' di dalam kurung ini:
+	studentService := service.NewStudentService(studentRepository, permissions)
 
 	// 4. Aplikasi
 	app := config.NewApp(logger, pool, studentService, permissions)
