@@ -24,6 +24,7 @@ func Register(app *fiber.App, logger *slog.Logger) {
 }
 
 // RequestLogger mencatat setiap request ke log terstruktur.
+// RequestLogger mencatat setiap request ke log terstruktur.
 func RequestLogger(logger *slog.Logger) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
@@ -31,14 +32,29 @@ func RequestLogger(logger *slog.Logger) fiber.Handler {
 		
 		requestID, _ := c.Locals("requestid").(string)
 		
-		logger.Info("http_request",
+		// 1. Buat keranjang log dasar
+		attrs := []any{
 			slog.String("request_id", requestID),
 			slog.String("method", c.Method()),
 			slog.String("path", c.Path()),
 			slog.Int("status", c.Response().StatusCode()),
 			slog.Duration("duration", time.Since(start)),
 			slog.String("ip", c.IP()),
-		)
+		}
+
+		// 2. TAMBAHAN TUGAS C.2 POIN 5: Catat Identitas
+		// Jika request lolos otentikasi, tambahkan user_id dan role ke keranjang
+		if user, ok := helper.CurrentUser(c); ok {
+			attrs = append(attrs,
+				slog.Int("user_id", user.UserID),
+				slog.String("role", user.Role),
+			)
+		}
+
+		// 3. Cetak keranjangnya ke log
+		logger.Info("http_request", attrs...)
+		
+		// 4. Return harus selalu di paling bawah
 		return err
 	}
 }
