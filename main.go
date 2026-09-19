@@ -47,7 +47,7 @@ func main() {
 	studentService := service.NewStudentService(studentRepository)
 
 	// 4. Aplikasi
-	app := config.NewApp(logger, pool, studentService)
+	app := config.NewApp(logger, pool, studentService, permissions)
 	port := config.GetEnv("APP_PORT", "3000")
 
 	go func() {

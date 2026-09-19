@@ -11,18 +11,16 @@ import (
 	"api-students/route"
 )
 
-// NewApp merakit aplikasi: membuat instance Fiber, memasang middleware,
-// lalu mendaftarkan route. File ini adalah tempat seluruh bagian bertemu.
-func NewApp(
-	logger *slog.Logger, pool *pgxpool.Pool, studentService *service.StudentService,
-) *fiber.App {
+// Tambahkan perms *helper.PermissionSet di akhir parameter
+func NewApp(logger *slog.Logger, pool *pgxpool.Pool, studentService *service.StudentService, perms *helper.PermissionSet,) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName:      GetEnv("APP_NAME", "Praktikum Backend Lanjut"),
 		ErrorHandler: newErrorHandler(logger),
 	})
 
 	middleware.Register(app, logger)
-	route.Register(app, pool, studentService)
+	// Cukup panggil SATU KALI saja dengan parameter lengkap
+	route.Register(app, pool, studentService, perms)
 
 	// Penampung terakhir untuk URL yang tidak dikenal.
 	app.Use(func(c *fiber.Ctx) error {

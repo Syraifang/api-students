@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"api-students/app/model"
+	"github.com/gofiber/fiber/v2"
 )
 
 // JwtCustomClaims adalah isi "KTP" yang akan dibungkus di dalam token
@@ -34,4 +36,26 @@ func GenerateToken(studentID int, role string) (string, error) {
 	// 3. Cetak dan stempel tokennya
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(secret))
+}
+
+func CurrentUser(c *fiber.Ctx) (model.AuthUser, bool) {
+	role, okRole := c.Locals("role").(string)
+	
+	var userID int
+	if idFloat, ok := c.Locals("student_id").(float64); ok {
+		userID = int(idFloat)
+	} else if idInt, ok := c.Locals("student_id").(int); ok {
+		userID = idInt
+	} else {
+		return model.AuthUser{}, false
+	}
+
+	if !okRole {
+		return model.AuthUser{}, false
+	}
+
+	return model.AuthUser{
+		UserID: userID,
+		Role:   role,
+	}, true
 }

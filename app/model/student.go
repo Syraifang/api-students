@@ -79,3 +79,10 @@ type LoginRequest struct {
 type AuthResponse struct {
 	Token string `json:"token"`
 }
+
+// AuthUser merepresentasikan identitas pengguna yang sedang mengakses sistem.
+// Dipakai oleh fungsi otorisasi Modul 6.
+type AuthUser struct {
+	UserID int
+	Role   string
+}
