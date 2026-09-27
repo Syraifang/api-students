@@ -15,7 +15,7 @@ func NewAuthService(repo repository.StudentRepository) AuthService {
 	return AuthService{repo: repo}
 }
 
-// Register untuk mendaftarkan mahasiswa baru beserta passwordnya
+// Register menyimpan password TANPA hash agar bisa dilihat langsung di database
 func (s AuthService) Register(c *fiber.Ctx) error {
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
@@ -29,14 +29,11 @@ func (s AuthService) Register(c *fiber.Ctx) error {
 		return helper.BadRequest("nim dan password wajib diisi")
 	}
 
-	hashedPassword, err := helper.HashPassword(req.Password)
-	if err != nil {
-		return helper.Internal(err)
-	}
-	req.Password = hashedPassword
+	// TIDAK PERLU HASH, simpan langsung apa adanya supaya bisa dilihat di DB
+	// req.Password = req.Password 
 
 	if req.Role == "" {
-		req.Role = "student"
+		req.Role = "user"
 	}
 
 	result, err := s.repo.Create(ctx, req)
@@ -48,11 +45,10 @@ func (s AuthService) Register(c *fiber.Ctx) error {
 	}
 
 	result.Password = ""
-
 	return helper.Success(c, fiber.StatusCreated, "registrasi berhasil", result)
 }
 
-// Login untuk mengecek kecocokan data dan memberikan token JWT
+// Login mencocokkan password secara langsung (teks biasa)
 func (s AuthService) Login(c *fiber.Ctx) error {
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
@@ -67,7 +63,8 @@ func (s AuthService) Login(c *fiber.Ctx) error {
 		return helper.Unauthorized("nim atau password salah") 
 	}
 
-	if !helper.CheckPasswordHash(req.Password, student.Password) {
+	// COCOKAN LANGSUNG SEBAGAI STRING BIASA
+	if req.Password != student.Password {
 		return helper.Unauthorized("nim atau password salah")
 	}
 
