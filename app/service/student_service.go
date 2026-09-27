@@ -28,6 +28,12 @@ func (s *StudentService) List(c *fiber.Ctx) error {
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
+	// 1. Pilih format SEBELUM query dijalankan
+	format, err := helper.Negotiate(c, helper.FormatJSON, helper.FormatCSV)
+	if err != nil {
+		return err
+	}
+
 	q, err := helper.ParseCursorQuery(c)
 	if err != nil {
 		return err
@@ -36,6 +42,11 @@ func (s *StudentService) List(c *fiber.Ctx) error {
 	rows, err := s.repo.FindAfterCursor(ctx, q)
 	if err != nil {
 		return helper.Internal(err)
+	}
+
+	// 2. Jika client meminta CSV, langsung kirim sebagai file CSV
+	if format == helper.FormatCSV {
+		return helper.WriteStudentsCSV(c, rows)
 	}
 
 	hasMore := len(rows) > q.Limit
