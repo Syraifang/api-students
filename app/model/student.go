@@ -95,3 +95,21 @@ type ErrorResponse struct {
 	Fields    map[string]string `json:"fields,omitempty"`
 	RequestID string            `json:"request_id,omitempty"`
 }
+
+type Cursor struct {
+	CreatedAt time.Time
+	ID        int
+}
+
+type CursorQuery struct {
+	Limit    int
+	After    *Cursor
+	Search   string
+	IsActive *bool
+}
+
+type CursorMeta struct {
+	Limit      int    `json:"limit"`
+	NextCursor string `json:"next_cursor,omitempty"`
+	HasMore    bool   `json:"has_more"`
+}
