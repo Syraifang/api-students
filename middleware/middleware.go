@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"errors"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -25,6 +26,7 @@ func Register(app *fiber.App, logger *slog.Logger) {
 
 // RequestLogger mencatat setiap request ke log terstruktur.
 // RequestLogger mencatat setiap request ke log terstruktur.
+// RequestLogger mencatat setiap request ke log terstruktur.
 func RequestLogger(logger *slog.Logger) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
@@ -32,18 +34,29 @@ func RequestLogger(logger *slog.Logger) fiber.Handler {
 		
 		requestID, _ := c.Locals("requestid").(string)
 		
-		// 1. Buat keranjang log dasar
+		// TAMBAHAN DARI MODUL 7 LANGKAH 3
+		// Mengambil status dari error karena ErrorHandler belum berjalan
+		status := c.Response().StatusCode()
+		if err != nil {
+			var appErr *helper.AppError
+			if errors.As(err, &appErr) {
+				status = appErr.Status
+			} else {
+				status = fiber.StatusInternalServerError
+			}
+		}
+
+		// Keranjang log dasar
 		attrs := []any{
 			slog.String("request_id", requestID),
 			slog.String("method", c.Method()),
 			slog.String("path", c.Path()),
-			slog.Int("status", c.Response().StatusCode()),
+			slog.Int("status", status), 
 			slog.Duration("duration", time.Since(start)),
 			slog.String("ip", c.IP()),
 		}
 
-		// 2. TAMBAHAN TUGAS C.2 POIN 5: Catat Identitas
-		// Jika request lolos otentikasi, tambahkan user_id dan role ke keranjang
+		// Mempertahankan tugas Modul 6: Catat identitas
 		if user, ok := helper.CurrentUser(c); ok {
 			attrs = append(attrs,
 				slog.Int("user_id", user.UserID),
@@ -51,10 +64,8 @@ func RequestLogger(logger *slog.Logger) fiber.Handler {
 			)
 		}
 
-		// 3. Cetak keranjangnya ke log
 		logger.Info("http_request", attrs...)
 		
-		// 4. Return harus selalu di paling bawah
 		return err
 	}
 }
