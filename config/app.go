@@ -65,15 +65,15 @@ func newErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 		}
 
 		// Hanya kegagalan sisi server yang dicatat sebagai Error.
-		if appErr.Status < fiber.StatusInternalServerError {
-			logger.Error("request_failed",
+		if appErr.Status >= fiber.StatusInternalServerError {
+    		logger.Error("request_failed",
 				slog.String("request_id", requestID),
 				slog.String("path", c.Path()),
 				slog.String("code", appErr.Code),
 				slog.Int("status", appErr.Status),
 				slog.String("error", appErr.Unwrap().Error()))
 		} else {
-			logger.Warn("request_rejected",
+    		logger.Warn("request_rejected",
 				slog.String("request_id", requestID),
 				slog.String("path", c.Path()),
 				slog.String("code", appErr.Code),
