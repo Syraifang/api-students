@@ -17,26 +17,26 @@ type Student struct {
 
 // CreateStudentRequest untuk metode POST (semua wajib)
 type CreateStudentRequest struct {
-	NIM      string `json:"nim"`
-	Name     string `json:"name"`
-	Grade    string `json:"grade"`
+	NIM      string `json:"nim" validate:"required,min=5,max=20"`
+	Name     string `json:"name" validate:"required,min=3,max=100"`
+	Grade    string `json:"grade" validate:"required"`
 	IsActive bool   `json:"is_active"`
 }
 
 // ReplaceStudentRequest untuk metode PUT (ganti seluruhnya, semua wajib)
 type ReplaceStudentRequest struct {
-	NIM      string `json:"nim"`
-	Name     string `json:"name"`
-	Grade    string `json:"grade"`
+	NIM      string `json:"nim" validate:"required,min=5,max=20"`
+	Name     string `json:"name" validate:"required,min=3,max=100"`
+	Grade    string `json:"grade" validate:"required"`
 	IsActive bool   `json:"is_active"`
 }
 
-// PatchStudentRequest untuk metode PATCH (ubah sebagian, pakai pointer)
+// PatchStudentRequest untuk metode PATCH (ubah sebagian, pakai pointer dan omitnil)
 type PatchStudentRequest struct {
-	NIM      *string `json:"nim,omitempty"`
-	Name     *string `json:"name,omitempty"`
-	Grade    *string `json:"grade,omitempty"`
-	IsActive *bool   `json:"is_active,omitempty"`
+	NIM      *string `json:"nim,omitempty" validate:"omitnil,min=5,max=20"`
+	Name     *string `json:"name,omitempty" validate:"omitnil,min=3,max=100"`
+	Grade    *string `json:"grade,omitempty" validate:"omitnil"`
+	IsActive *bool   `json:"is_active,omitempty" validate:"omitnil"`
 }
 
 // Amplop baku untuk semua respons API

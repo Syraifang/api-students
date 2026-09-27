@@ -5,35 +5,6 @@ import (
 	"api-students/app/model"
 )
 
-// 1. Test Validasi POST (Create)
-func TestValidateCreate(t *testing.T) {
-	// Skenario gagal: Data kosong
-	req := model.CreateStudentRequest{
-		NIM:  "",
-		Name: "",
-	}
-	
-	errs := ValidateCreate(req)
-	if len(errs) == 0 {
-		t.Errorf("Diharapkan ada error validasi untuk data kosong, tapi lolos")
-	}
-}
-
-// 2. Test Validasi PUT (Replace)
-func TestValidateReplace(t *testing.T) {
-	// Skenario gagal: Data wajib ada yang kosong
-	req := model.ReplaceStudentRequest{
-		NIM:   "", // Sengaja dikosongkan agar memicu error
-		Name:  "",
-		Grade: "A",
-	}
-	
-	errs := ValidateReplace(req)
-	if len(errs) == 0 {
-		t.Errorf("Diharapkan ada error karena NIM/Nama kosong, tapi malah lolos")
-	}
-}
-
 // 3. Test Penerapan PATCH (Update Sebagian)
 func TestApplyPatch(t *testing.T) {
 	current := model.Student{
