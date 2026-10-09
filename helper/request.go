@@ -10,12 +10,10 @@ import (
 	"api-students/app/model"
 )
 
-// RequestContext memberi timeout untuk setiap operasi database.
 func RequestContext(c *fiber.Ctx) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(c.UserContext(), 5*time.Second)
 }
 
-// ParamID membaca parameter id dari jalur dan memastikan bentuknya benar.
 func ParamID(c *fiber.Ctx) (int, bool) {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil || id < 1 {
@@ -24,41 +22,27 @@ func ParamID(c *fiber.Ctx) (int, bool) {
 	return id, true
 }
 
-// allowedSort disesuaikan untuk entitas mahasiswa
-var allowedSort = map[string]bool{
-	"id": true, "nim": true, "name": true, "created_at": true,
-}
-
-// ParseListQuery membaca query string dan memberi nilai bawaan yang aman.
 func ParseListQuery(c *fiber.Ctx) model.ListQuery {
 	q := model.ListQuery{
-		Page:   c.QueryInt("page", 1),
-		Limit:  c.QueryInt("limit", 10),
-		Search: strings.TrimSpace(c.Query("search")),
-		Sort:   c.Query("sort", "id"),
-		Order:  strings.ToLower(c.Query("order", "asc")),
+		Page:     c.QueryInt("page", 1),
+		PerPage:  c.QueryInt("per_page", 10),
+		Search:   strings.TrimSpace(c.Query("search")),
+		Prodi:    strings.TrimSpace(c.Query("prodi")),
+		Angkatan: strings.TrimSpace(c.Query("angkatan")),
+		Sort:     c.Query("sort", "nama"), // Default dari UTS
 	}
 
 	if q.Page < 1 {
 		q.Page = 1
 	}
-	if q.Limit < 1 {
-		q.Limit = 10
+	if q.PerPage < 1 {
+		q.PerPage = 10
 	}
-	if q.Limit > 100 {
-		q.Limit = 100
+	if q.PerPage > 50 {
+		q.PerPage = 50 // Maksimal 50 sesuai soal UTS
 	}
-	if !allowedSort[q.Sort] {
-		q.Sort = "id"
-	}
-	if q.Order != "desc" {
-		q.Order = "asc"
-	}
-
-	if raw := c.Query("is_active"); raw != "" {
-		if v, err := strconv.ParseBool(raw); err == nil {
-			q.IsActive = &v
-		}
+	if q.Sort != "nama" && q.Sort != "-ipk_terakhir" {
+		q.Sort = "nama"
 	}
 
 	return q

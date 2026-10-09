@@ -40,8 +40,10 @@ func RequireAuth(c *fiber.Ctx) error {
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		c.Locals("student_id", claims["student_id"])
+		// PERUBAHAN DI SINI: Ganti student_id jadi user_id dan tambahkan email
+		c.Locals("user_id", claims["user_id"])
 		c.Locals("role", claims["role"])
+		c.Locals("email", claims["email"])
 	}
 
 	return c.Next()

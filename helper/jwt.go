@@ -11,13 +11,14 @@ import (
 
 // JwtCustomClaims adalah isi "KTP" yang akan dibungkus di dalam token
 type JwtCustomClaims struct {
-	StudentID int    `json:"student_id"`
-	Role      string `json:"role"`
+	UserID int    `json:"user_id"`
+	Role   string `json:"role"`
+	Email  string `json:"email"`
 	jwt.RegisteredClaims
 }
 
-// GenerateToken berfungsi mencetak token baru saat mahasiswa berhasil login
-func GenerateToken(studentID int, role string) (string, error) {
+// GenerateToken berfungsi mencetak token baru saat berhasil login
+func GenerateToken(userID int, role string, email string) (string, error) {
 	// 1. Ambil kata sandi rahasia dari file .env
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
@@ -26,8 +27,9 @@ func GenerateToken(studentID int, role string) (string, error) {
 
 	// 2. Isi data KTP-nya (aktif selama 24 jam)
 	claims := &JwtCustomClaims{
-		StudentID: studentID,
-		Role:      role,
+		UserID: userID,
+		Role:   role,
+		Email:  email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
 		},
@@ -40,11 +42,13 @@ func GenerateToken(studentID int, role string) (string, error) {
 
 func CurrentUser(c *fiber.Ctx) (model.AuthUser, bool) {
 	role, okRole := c.Locals("role").(string)
+	email, _ := c.Locals("email").(string)
 	
 	var userID int
-	if idFloat, ok := c.Locals("student_id").(float64); ok {
+	// Ubah pencarian dari student_id menjadi user_id
+	if idFloat, ok := c.Locals("user_id").(float64); ok {
 		userID = int(idFloat)
-	} else if idInt, ok := c.Locals("student_id").(int); ok {
+	} else if idInt, ok := c.Locals("user_id").(int); ok {
 		userID = idInt
 	} else {
 		return model.AuthUser{}, false
@@ -57,5 +61,6 @@ func CurrentUser(c *fiber.Ctx) (model.AuthUser, bool) {
 	return model.AuthUser{
 		UserID: userID,
 		Role:   role,
+		Email:  email,
 	}, true
 }

@@ -12,7 +12,6 @@ import (
 	"api-students/app/service"
 	"api-students/config"
 	"api-students/database"
-	"api-students/helper"
 )
 
 // main hanya berisi urutan perakitan. Tidak ada logika bisnis,
@@ -30,25 +29,12 @@ func main() {
 	}
 	defer pool.Close()
 
-	// ==========================================
-	// TAMBAHAN MEMUAT ROLE & PERMISSION
-	// ==========================================
-	roleRepository := repository.NewRoleRepository(pool)
-	rawPermissions, err := roleRepository.LoadPermissions(context.Background())
-	if err != nil {
-		logger.Error("gagal memuat permission", slog.String("error", err.Error()))
-		os.Exit(1) // Fail closed: matikan server jika gagal memuat akses
-	}
-	permissions := helper.NewPermissionSet(rawPermissions)
-	logger.Info("permission dimuat", slog.Any("roles", permissions.KnownRoles()))
-
 	// 3. Perakitan dari dalam ke luar: repository -> service
 	studentRepository := repository.NewStudentRepository(pool)
-	// TAMBAHKAN variabel 'permissions' di dalam kurung ini:
-	studentService := service.NewStudentService(studentRepository, permissions)
+	studentService := service.NewStudentService(studentRepository)
 
-	// 4. Aplikasi
-	app := config.NewApp(logger, pool, studentService, permissions)
+	// 4. Aplikasi (tanpa permissions)
+	app := config.NewApp(logger, pool, studentService)
 	port := config.GetEnv("APP_PORT", "3000")
 
 	go func() {

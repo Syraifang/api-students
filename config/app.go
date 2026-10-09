@@ -1,21 +1,21 @@
 package config
 
 import (
-	"errors" // Ditambahkan untuk penanganan error
+	"errors"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 	
-	"api-students/app/model" // Ditambahkan untuk model.ErrorResponse
+	"api-students/app/model"
 	"api-students/app/service"
 	"api-students/helper"
 	"api-students/middleware"
 	"api-students/route"
 )
 
-// Tambahkan perms *helper.PermissionSet di akhir parameter
-func NewApp(logger *slog.Logger, pool *pgxpool.Pool, studentService *service.StudentService, perms *helper.PermissionSet) *fiber.App {
+// NewApp merakit aplikasi Fiber tanpa parameter perms
+func NewApp(logger *slog.Logger, pool *pgxpool.Pool, studentService *service.StudentService) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName:      GetEnv("APP_NAME", "Praktikum Backend Lanjut"),
 		ErrorHandler: newErrorHandler(logger),
@@ -23,10 +23,9 @@ func NewApp(logger *slog.Logger, pool *pgxpool.Pool, studentService *service.Stu
 
 	middleware.Register(app, logger)
 	
-	route.Register(app, pool, studentService, perms)
+	route.Register(app, pool, studentService)
 
 	// POIN 3: Penampung terakhir untuk URL yang tidak dikenal.
-	// Menggunakan helper.NotFound sesuai instruksi modul.
 	app.Use(func(c *fiber.Ctx) error {
 		return helper.NotFound("endpoint tidak ditemukan")
 	})
@@ -34,8 +33,7 @@ func NewApp(logger *slog.Logger, pool *pgxpool.Pool, studentService *service.Stu
 	return app
 }
 
-// POIN 1 & 2: newErrorHandler adalah SATU-SATUNYA tempat error berubah menjadi
-// response HTTP di seluruh aplikasi. FUNGSI YANG LAMA SUDAH DIHAPUS.
+// newErrorHandler adalah SATU-SATUNYA tempat error berubah menjadi response HTTP.
 func newErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 	return func(c *fiber.Ctx, err error) error {
 		requestID, _ := c.Locals("requestid").(string)
@@ -43,7 +41,7 @@ func newErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 		var appErr *helper.AppError
 		switch {
 		case errors.As(err, &appErr):
-			// Kegagalan yang sudah kita rencanakan.
+			// Kegagalan yang sudah direncanakan.
 		case errors.Is(err, fiber.ErrRequestEntityTooLarge):
 			appErr = &helper.AppError{
 				Status:  fiber.StatusRequestEntityTooLarge,
@@ -51,7 +49,6 @@ func newErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 				Message: "ukuran body melebihi batas yang diizinkan",
 			}
 		default:
-			// Kegagalan yang tidak kita duga.
 			var fiberErr *fiber.Error
 			if errors.As(err, &fiberErr) {
 				appErr = &helper.AppError{
@@ -64,7 +61,6 @@ func newErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 			}
 		}
 
-		// Hanya kegagalan sisi server yang dicatat sebagai Error.
 		if appErr.Status >= fiber.StatusInternalServerError {
     		logger.Error("request_failed",
 				slog.String("request_id", requestID),

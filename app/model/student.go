@@ -2,90 +2,95 @@ package model
 
 import "time"
 
-// Student adalah entitas utama yang sekarang terhubung ke PostgreSQL
+// User merepresentasikan tabel "users"
+type User struct {
+	ID       int    `json:"id"`
+	Email    string `json:"email"`
+	Password string `json:"-"` // Sembunyikan password saat diubah ke JSON
+	Role     string `json:"role"`
+}
+
+// Student adalah entitas utama mahasiswa sesuai tabel UTS
 type Student struct {
-	ID        int       `json:"id"`
-	NIM       string    `json:"nim"`
-	Name      string    `json:"name"`
-	Grade     string    `json:"grade"`
-	IsActive  bool      `json:"is_active"`
-	CreatedAt time.Time `json:"created_at"`
-	Password  string    `json:"password,omitempty"`
-	Role      string    `json:"role,omitempty"`
-	OwnerID   int       `json:"owner_id"` // <-- Tambahkan baris ini
+	ID          int        `json:"id"`
+	UserID      int        `json:"user_id,omitempty"` // Relasi ke tabel users
+	NIM         string     `json:"nim"`               // 12 digit, uniq
+	Nama        string     `json:"nama"`
+	Prodi       string     `json:"prodi"`
+	Angkatan    int        `json:"angkatan"`
+	IPKTerakhir float64    `json:"ipk_terakhir"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty"` // Untuk fitur soft delete
 }
 
-// CreateStudentRequest untuk metode POST (semua wajib)
-type CreateStudentRequest struct {
-	NIM      string `json:"nim" validate:"required,min=5,max=20"`
-	Name     string `json:"name" validate:"required,min=3,max=100"`
-	Grade    string `json:"grade" validate:"required"`
-	IsActive bool   `json:"is_active"`
+// StudentCreateRequest untuk endpoint POST /students (menambah mahasiswa + akun)
+type StudentCreateRequest struct {
+	NIM         string  `json:"nim" validate:"required,len=12"`
+	Nama        string  `json:"nama" validate:"required"`
+	Email       string  `json:"email" validate:"required,email"`
+	Prodi       string  `json:"prodi" validate:"required"`
+	Angkatan    int     `json:"angkatan" validate:"required,min=2000"`
+	IPKTerakhir float64 `json:"ipk_terakhir" validate:"omitempty,min=0,max=4"`
 }
 
-// ReplaceStudentRequest untuk metode PUT (ganti seluruhnya, semua wajib)
-type ReplaceStudentRequest struct {
-	NIM      string `json:"nim" validate:"required,min=5,max=20"`
-	Name     string `json:"name" validate:"required,min=3,max=100"`
-	Grade    string `json:"grade" validate:"required"`
-	IsActive bool   `json:"is_active"`
+// StudentUpdateRequest untuk endpoint PUT /students/:id (NIM tidak ada karena dilarang ubah)
+type StudentUpdateRequest struct {
+	Nama        string  `json:"nama" validate:"required"`
+	Prodi       string  `json:"prodi" validate:"required"`
+	Angkatan    int     `json:"angkatan" validate:"required,min=2000"`
+	IPKTerakhir float64 `json:"ipk_terakhir" validate:"omitempty,min=0,max=4"`
 }
 
-// PatchStudentRequest untuk metode PATCH (ubah sebagian, pakai pointer dan omitnil)
-type PatchStudentRequest struct {
-	NIM      *string `json:"nim,omitempty" validate:"omitnil,min=5,max=20"`
-	Name     *string `json:"name,omitempty" validate:"omitnil,min=3,max=100"`
-	Grade    *string `json:"grade,omitempty" validate:"omitnil"`
-	IsActive *bool   `json:"is_active,omitempty" validate:"omitnil"`
+// LoginRequest untuk endpoint POST /auth/login
+type LoginRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=8"`
 }
 
-// Amplop baku untuk semua respons API
+// AuthUser merepresentasikan profil pengguna di dalam JWT
+type AuthUser struct {
+	UserID int
+	Role   string
+	Email  string
+}
+
+// WebResponse menyesuaikan standar format JSON UTS
 type WebResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 	Data    any    `json:"data,omitempty"`
 	Meta    *Meta  `json:"meta,omitempty"`
-	Errors  any    `json:"errors,omitempty"`
+	Errors  any    `json:"errors,omitempty"` // Dipakai untuk error validasi bersarang
 }
 
-// Meta untuk informasi paginasi
+// Meta menyesuaikan format pagination dari UTS
 type Meta struct {
-	Page       int `json:"page"`
-	Limit      int `json:"limit"`
-	Total      int `json:"total"`
-	TotalPages int `json:"total_pages"`
+	CurrentPage int `json:"current_page"`
+	PerPage     int `json:"per_page"`
+	Total       int `json:"total"`
+	LastPage    int `json:"last_page"`
 }
 
-// ListQuery untuk menangkap parameter pencarian, pengurutan, dll
+// ListQuery untuk menangkap filter & pagination dari parameter URL GET /students
 type ListQuery struct {
 	Page     int
-	Limit    int
-	Search   string
-	Sort     string
-	Order    string
-	IsActive *bool
+	PerPage  int
+	Prodi    string
+	Angkatan string
+	Search   string // Mencari NIM atau nama
+	Sort     string // "nama" atau "-ipk_terakhir"
 }
 
-// Offset menghitung berapa baris yang dilewati untuk halaman ini.
-// Perhitungan ini pindah ke sini karena kini dipakai langsung oleh SQL.
+// Offset menghitung limit & offset database
 func (q ListQuery) Offset() int {
-	return (q.Page - 1) * q.Limit
+	return (q.Page - 1) * q.PerPage
 }
 
-type LoginRequest struct {
-	NIM      string `json:"nim"`
-	Password string `json:"password"`
-}
-
-type AuthResponse struct {
-	Token string `json:"token"`
-}
-
-// AuthUser merepresentasikan identitas pengguna yang sedang mengakses sistem.
-// Dipakai oleh fungsi otorisasi Modul 6.
-type AuthUser struct {
-	UserID int
-	Role   string
+// StudentDetailResponse untuk endpoint GET /students/:id (Detail + daftar MK)
+type StudentDetailResponse struct {
+	Student
+	MataKuliahDiambil []Course `json:"mata_kuliah_diambil"`
+	TotalSKS          int      `json:"total_sks"`
+	BatasSKS          int      `json:"batas_sks"`
 }
 
 type ErrorResponse struct {
@@ -94,22 +99,4 @@ type ErrorResponse struct {
 	Message   string            `json:"message"`
 	Fields    map[string]string `json:"fields,omitempty"`
 	RequestID string            `json:"request_id,omitempty"`
-}
-
-type Cursor struct {
-	CreatedAt time.Time
-	ID        int
-}
-
-type CursorQuery struct {
-	Limit    int
-	After    *Cursor
-	Search   string
-	IsActive *bool
-}
-
-type CursorMeta struct {
-	Limit      int    `json:"limit"`
-	NextCursor string `json:"next_cursor,omitempty"`
-	HasMore    bool   `json:"has_more"`
 }
