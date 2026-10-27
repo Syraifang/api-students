@@ -12,6 +12,9 @@ import (
 	"api-students/app/service"
 	"api-students/config"
 	"api-students/database"
+	"api-students/helper"
+	"api-students/route"
+	"github.com/gofiber/fiber/v2"
 )
 
 // main hanya berisi urutan perakitan. Tidak ada logika bisnis,
@@ -22,6 +25,7 @@ func main() {
 	logger := config.NewLogger()
 
 	// 2. Database
+	// -- Koneksi PostgreSQL --
 	pool, err := database.NewPool(context.Background())
 	if err != nil {
 		logger.Error("gagal terhubung ke database", slog.String("error", err.Error()))
@@ -29,12 +33,18 @@ func main() {
 	}
 	defer pool.Close()
 
+	// -- Koneksi MongoDB (TAMBAHAN BARU) --
+	database.ConnectMongoDB()
+	// -------------------------------------
+
 	// 3. Perakitan dari dalam ke luar: repository -> service
 	studentRepository := repository.NewStudentRepository(pool)
 	studentService := service.NewStudentService(studentRepository)
 
 	// 4. Aplikasi (tanpa permissions)
 	app := config.NewApp(logger, pool, studentService)
+	route.Register(app, pool, studentService)
+
 	port := config.GetEnv("APP_PORT", "3000")
 
 	go func() {
@@ -56,9 +66,18 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Menutup koneksi MongoDB dengan rapi (TAMBAHAN BARU)
+	if err := database.MongoClient.Disconnect(ctx); err != nil {
+		logger.Error("gagal menutup koneksi MongoDB", slog.String("error", err.Error()))
+	}
+
 	if err := app.ShutdownWithContext(ctx); err != nil {
 		logger.Error("gagal menutup server dengan rapi", slog.String("error", err.Error()))
 	}
 	
 	logger.Info("server berhenti dengan rapi")
+
+	app.Use(func(c *fiber.Ctx) error {
+		return helper.NotFound("endpoint tidak ditemukan")
+	})
 }

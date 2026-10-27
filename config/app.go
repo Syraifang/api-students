@@ -11,7 +11,6 @@ import (
 	"api-students/app/service"
 	"api-students/helper"
 	"api-students/middleware"
-	"api-students/route"
 )
 
 // NewApp merakit aplikasi Fiber tanpa parameter perms
@@ -23,13 +22,6 @@ func NewApp(logger *slog.Logger, pool *pgxpool.Pool, studentService *service.Stu
 
 	middleware.Register(app, logger)
 	
-	route.Register(app, pool, studentService)
-
-	// POIN 3: Penampung terakhir untuk URL yang tidak dikenal.
-	app.Use(func(c *fiber.Ctx) error {
-		return helper.NotFound("endpoint tidak ditemukan")
-	})
-
 	return app
 }
 

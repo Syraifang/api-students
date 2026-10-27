@@ -6,8 +6,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"api-students/app/repository"
 	"api-students/app/service"
+	"api-students/database"
 	"api-students/helper"
 	"api-students/middleware"
 )
@@ -31,16 +33,29 @@ func Register(app *fiber.App, pool *pgxpool.Pool, studentService *service.Studen
 	api.Get("/courses", middleware.RequireJSON, middleware.RequireAuth, courseService.GetCourses)
 
 	// Rute Students (Berpelindung Token)
+	studentRepo := repository.NewStudentRepository(pool)
 	students := api.Group("/students", middleware.RequireJSON, middleware.RequireAuth)
 	
 	students.Get("/", studentService.List)
 	students.Post("/", studentService.Create)
+
+	// Rute Portofolio Mahasiswa (MongoDB - Modul 10) 
+	// Dipindahkan ke atas sebelum /:id agar rute spesifik terbaca duluan
+	portfolioRepo := repository.NewPortfolioRepository(database.MongoDB)
+	portfolioService := service.NewPortfolioService(portfolioRepo, studentRepo)
+
+	students.Get("/:id/portfolio", portfolioService.GetPortfolio)
+	students.Put("/:id/portfolio", portfolioService.UpsertPortfolio)
+	students.Post("/:id/portfolio/projects", portfolioService.AddProject)
+	students.Delete("/:id/portfolio/projects/:projectId", portfolioService.DeleteProject)
+
 	students.Get("/:id", studentService.Get)
 	students.Put("/:id", studentService.Replace)
 	students.Delete("/:id", studentService.Delete)
 
+	api.Get("/portfolios/stats/technologies", middleware.RequireJSON, middleware.RequireAuth, portfolioService.GetTopTechnologies)
+
 	// Rute Enrollments / KRS (Mahasiswa yang terautentikasi)
-	studentRepo := repository.NewStudentRepository(pool)
 	enrollmentRepo := repository.NewEnrollmentRepository(pool)
 	enrollmentService := service.NewEnrollmentService(enrollmentRepo, studentRepo, pool)
 	
