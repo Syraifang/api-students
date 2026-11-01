@@ -58,7 +58,8 @@ func (w *NotificationWorker) HandleSend(ctx context.Context, t *asynq.Task) erro
 
 	alreadySent := false
 	err = w.tx.WithTxOnce(ctx, func(tx repository.DBTX) error {
-		claimed, err := w.notifications.Claim(ctx, model.Notification{
+		// [PERBAIKAN BUG TRANSAKSI WORKER]: Gunakan .WithTx(tx) agar klaim notifikasi ikut ter-rollback jika mailer gagal
+		claimed, err := w.notifications.WithTx(tx).Claim(ctx, model.Notification{
 			OutboxID: job.OutboxID, UserID: user.ID, Channel: "email",
 			Subject: msg.Subject, Body: msg.Body,
 		})
