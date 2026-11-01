@@ -10,6 +10,8 @@ import (
 
 type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (model.User, error)
+	// Tambahan baru untuk Modul 11
+	FindByID(ctx context.Context, id int) (model.User, error)
 }
 
 type userPostgresRepository struct {
@@ -24,6 +26,22 @@ func (r *userPostgresRepository) FindByEmail(ctx context.Context, email string) 
 	var u model.User
 	err := r.pool.QueryRow(ctx,
 		"SELECT id, email, password, role FROM users WHERE email = $1", email,
+	).Scan(&u.ID, &u.Email, &u.Password, &u.Role)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.User{}, ErrNotFound
+		}
+		return model.User{}, err
+	}
+	return u, nil
+}
+
+// Tambahan implementasi FindByID di bawah sini
+func (r *userPostgresRepository) FindByID(ctx context.Context, id int) (model.User, error) {
+	var u model.User
+	err := r.pool.QueryRow(ctx,
+		"SELECT id, email, password, role FROM users WHERE id = $1", id,
 	).Scan(&u.ID, &u.Email, &u.Password, &u.Role)
 
 	if err != nil {

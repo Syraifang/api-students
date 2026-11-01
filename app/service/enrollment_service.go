@@ -14,13 +14,21 @@ import (
 type EnrollmentService struct {
 	enrollmentRepo repository.EnrollmentRepository
 	studentRepo    repository.StudentRepository
+	outbox         repository.OutboxRepository // Tambahan Modul 11
 	db             *pgxpool.Pool
 }
 
-func NewEnrollmentService(enrollmentRepo repository.EnrollmentRepository, studentRepo repository.StudentRepository, db *pgxpool.Pool) *EnrollmentService {
+// Constructor diperbarui untuk menerima OutboxRepository
+func NewEnrollmentService(
+	enrollmentRepo repository.EnrollmentRepository,
+	studentRepo repository.StudentRepository,
+	outbox repository.OutboxRepository,
+	db *pgxpool.Pool,
+) *EnrollmentService {
 	return &EnrollmentService{
 		enrollmentRepo: enrollmentRepo,
 		studentRepo:    studentRepo,
+		outbox:         outbox,
 		db:             db,
 	}
 }
@@ -30,7 +38,6 @@ func (s *EnrollmentService) Create(c *fiber.Ctx) error {
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
-	// 1. Ambil user_id dari c.Locals yang diset oleh middleware
 	rawUserID := c.Locals("user_id")
 	if rawUserID == nil {
 		return helper.Fail(c, fiber.StatusUnauthorized, "tidak dapat memverifikasi sesi pengguna")
@@ -46,13 +53,11 @@ func (s *EnrollmentService) Create(c *fiber.Ctx) error {
 		return helper.Fail(c, fiber.StatusUnauthorized, "format sesi pengguna tidak valid")
 	}
 
-	// 2. Cari data student berdasarkan user_id
 	student, err := s.studentRepo.FindByUserID(ctx, userID)
 	if err != nil {
 		return helper.Fail(c, fiber.StatusForbidden, "akun ini bukan mahasiswa atau data mahasiswa tidak ditemukan")
 	}
 
-	// 3. Parse request body
 	var req model.EnrollmentRequest
 	if err := c.BodyParser(&req); err != nil {
 		return helper.BadRequest("format input tidak valid")
@@ -61,14 +66,13 @@ func (s *EnrollmentService) Create(c *fiber.Ctx) error {
 		return helper.Validation(errs)
 	}
 
-	// 4. Mulai Transaksi Database
+	// Mulai Transaksi Database
 	tx, err := s.enrollmentRepo.BeginTx(ctx)
 	if err != nil {
 		return helper.Fail(c, fiber.StatusInternalServerError, "gagal memulai transaksi")
 	}
 	defer tx.Rollback(ctx)
 
-	// 5. Kunci baris mata kuliah & cek kuota (Row Locking)
 	course, terisi, err := s.enrollmentRepo.LockAndGetCourse(ctx, tx, req.CourseID)
 	if err != nil {
 		return err
@@ -78,7 +82,6 @@ func (s *EnrollmentService) Create(c *fiber.Ctx) error {
 		return helper.BadRequest("maaf, kuota mata kuliah sudah penuh")
 	}
 
-	// 6. Cek duplikasi (apakah sudah mengambil MK yang sama di tahun akademik ini)
 	isDuplicate, err := s.enrollmentRepo.CheckDuplicate(ctx, student.ID, req.CourseID, req.TahunAkademik)
 	if err != nil {
 		return err
@@ -87,13 +90,11 @@ func (s *EnrollmentService) Create(c *fiber.Ctx) error {
 		return helper.BadRequest("anda sudah mengambil mata kuliah ini pada tahun akademik tersebut")
 	}
 
-	// 7. Hitung total SKS yang sudah diambil di semester/tahun akademik tersebut
 	currentTotalSKS, err := s.enrollmentRepo.GetTotalSKSCurrentSemester(ctx, student.ID, req.TahunAkademik)
 	if err != nil {
 		return err
 	}
 
-	// 8. Tentukan batas maksimal SKS berdasarkan IPK Terakhir
 	var maxSKS int
 	if student.IPKTerakhir >= 3.00 {
 		maxSKS = 24
@@ -107,11 +108,24 @@ func (s *EnrollmentService) Create(c *fiber.Ctx) error {
 		return helper.BadRequest("total SKS melebihi batas maksimal berdasarkan IPK terakhir Anda (" + strconv.Itoa(maxSKS) + " SKS)")
 	}
 
-	// 9. Simpan enrollment ke database
+	// Simpan enrollment ke database
 	err = s.enrollmentRepo.Create(ctx, tx, student.ID, req.CourseID, req.TahunAkademik)
 	if err != nil {
 		return err
 	}
+
+	// --- [PERBAIKAN BUG 4]: Catat event ke outbox memakai transaksi yang sama ---
+	// Kita menggunakan s.outbox.WithTx(tx) agar outbox tercatat secara atomik bersama KRS
+	err = s.outbox.WithTx(tx).Insert(ctx, model.EventEnrollmentCreated, model.EnrollmentEvent{
+		UserID:     userID, 
+		CourseID:   course.ID,
+		CourseCode: "-", // Bisa disesuaikan jika struct course Anda punya field KodeMK
+		CourseName: course.NamaMK,
+	})
+	if err != nil {
+		return helper.Fail(c, fiber.StatusInternalServerError, "gagal mencatat outbox: "+err.Error())
+	}
+	// ----------------------------------------------------------------------------
 
 	// Commit transaksi
 	if err := tx.Commit(ctx); err != nil {
@@ -137,7 +151,6 @@ func (s *EnrollmentService) Delete(c *fiber.Ctx) error {
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
-	// 1. Ambil user_id dari c.Locals yang diset oleh middleware
 	rawUserID := c.Locals("user_id")
 	if rawUserID == nil {
 		return helper.Fail(c, fiber.StatusUnauthorized, "tidak dapat memverifikasi sesi pengguna")
@@ -153,7 +166,6 @@ func (s *EnrollmentService) Delete(c *fiber.Ctx) error {
 		return helper.Fail(c, fiber.StatusUnauthorized, "format sesi pengguna tidak valid")
 	}
 
-	// 2. Cari data student berdasarkan user_id
 	student, err := s.studentRepo.FindByUserID(ctx, userID)
 	if err != nil {
 		return helper.Fail(c, fiber.StatusForbidden, "akun ini bukan mahasiswa")
@@ -168,6 +180,12 @@ func (s *EnrollmentService) Delete(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
+	// Mencatat event KRS dibatalkan ke outbox
+	s.outbox.Insert(ctx, model.EventEnrollmentDropped, model.EnrollmentEvent{
+		UserID:     userID,
+		CourseName: "Mata Kuliah (Dibatalkan)", 
+	})
 
 	return c.Status(fiber.StatusOK).JSON(model.WebResponse{
 		Success: true,

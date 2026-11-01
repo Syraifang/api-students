@@ -12,10 +12,16 @@ import (
 
 type CourseService struct {
 	courseRepo repository.CourseRepository
+	outbox     repository.OutboxRepository
+	tx         *repository.TxManager
 }
 
-func NewCourseService(courseRepo repository.CourseRepository) *CourseService {
-	return &CourseService{courseRepo: courseRepo}
+func NewCourseService(
+	courseRepo repository.CourseRepository,
+	outbox repository.OutboxRepository,
+	tx *repository.TxManager,
+) *CourseService {
+	return &CourseService{courseRepo: courseRepo, outbox: outbox, tx: tx}
 }
 
 // GetCourses menangani endpoint GET /api/v1/courses langsung dengan fiber.Ctx

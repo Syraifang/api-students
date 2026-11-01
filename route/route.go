@@ -12,6 +12,8 @@ import (
 	"api-students/database"
 	"api-students/helper"
 	"api-students/middleware"
+	"api-students/config"
+	"github.com/hibiken/asynq"
 )
 
 // Disederhanakan tanpa parameter perms
@@ -27,9 +29,12 @@ func Register(app *fiber.App, pool *pgxpool.Pool, studentService *service.Studen
 	auth.Post("/login", authService.Login)
 	auth.Get("/me", middleware.RequireAuth, authService.Me)
 
+	outboxRepo := repository.NewOutboxRepository(pool)
+	txManager := repository.NewTxManager(pool)
+
 	// Rute Courses (Semua role terautentikasi)
 	courseRepo := repository.NewCourseRepository(pool)
-	courseService := service.NewCourseService(courseRepo)
+	courseService := service.NewCourseService(courseRepo, outboxRepo, txManager)
 	api.Get("/courses", middleware.RequireJSON, middleware.RequireAuth, courseService.GetCourses)
 
 	// Rute Students (Berpelindung Token)
@@ -57,11 +62,21 @@ func Register(app *fiber.App, pool *pgxpool.Pool, studentService *service.Studen
 
 	// Rute Enrollments / KRS (Mahasiswa yang terautentikasi)
 	enrollmentRepo := repository.NewEnrollmentRepository(pool)
-	enrollmentService := service.NewEnrollmentService(enrollmentRepo, studentRepo, pool)
+	enrollmentService := service.NewEnrollmentService(enrollmentRepo, studentRepo, outboxRepo, pool)
 	
 	enrollments := api.Group("/enrollments", middleware.RequireJSON, middleware.RequireAuth)
 	enrollments.Post("/", enrollmentService.Create)
 	enrollments.Delete("/:id", enrollmentService.Delete)
+
+	notificationRepo := repository.NewNotificationRepository(pool)
+	inspector := asynq.NewInspector(config.RedisOpt())
+	notificationService := service.NewNotificationService(notificationRepo, outboxRepo, inspector)
+
+	notifications := api.Group("/notifications", middleware.RequireJSON, middleware.RequireAuth)
+	notifications.Get("/mine", notificationService.Mine)
+
+	admin := api.Group("/admin", middleware.RequireJSON, middleware.RequireAuth)
+	admin.Get("/queue", notificationService.Monitor)
 }
 
 func healthCheck(pool *pgxpool.Pool) fiber.Handler {
