@@ -2,3 +2,11 @@
 logs/
 test.http
 *.exe
+.env
+.env.*
+.env.test
+logs/
+*.log
+coverage.out
+test.http
+*.exe
