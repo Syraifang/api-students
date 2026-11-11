@@ -14,12 +14,17 @@ import (
 	"api-students/middleware"
 	"api-students/config"
 	"github.com/hibiken/asynq"
+	"github.com/gofiber/swagger"
 )
 
 // Disederhanakan tanpa parameter perms
 func Register(app *fiber.App, pool *pgxpool.Pool, studentService *service.StudentService) {
 	api := app.Group("/api/v1")
 	api.Get("/health", healthCheck(pool))
+
+	if config.GetEnv("SWAGGER_ENABLED", "false") == "true" {
+    app.Get("/swagger/*", swagger.HandlerDefault)
+	}
 
 	// Rute Auth (Publik)
 	userRepo := repository.NewUserRepository(pool)

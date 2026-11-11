@@ -77,6 +77,39 @@ func (r *enrollmentRepository) LockAndGetCourse(ctx context.Context, tx pgx.Tx, 
 }
 
 func (r *enrollmentRepository) Create(ctx context.Context, tx pgx.Tx, studentID int, courseID int, tahunAkademik string) error {
+	// Kunci baris mahasiswa dengan FOR UPDATE agar pengecekan batas SKS paralel tidak mengalami race condition
+	var ipk float64
+	lockStudentQuery := `SELECT COALESCE(ipk_terakhir, 0) FROM students WHERE id = $1 FOR UPDATE`
+	if err := tx.QueryRow(ctx, lockStudentQuery, studentID).Scan(&ipk); err != nil {
+		return err
+	}
+
+	var maxSKS int
+	if ipk >= 3.00 {
+		maxSKS = 24
+	} else if ipk >= 2.50 {
+		maxSKS = 21
+	} else {
+		maxSKS = 18
+	}
+
+	var currentSKS, courseSKS int
+	sksQuery := `
+		SELECT COALESCE(SUM(c.sks), 0)
+		FROM enrollments e
+		JOIN courses c ON e.course_id = c.id
+		WHERE e.student_id = $1 AND e.tahun_akademik = $2
+	`
+	if err := tx.QueryRow(ctx, sksQuery, studentID, tahunAkademik).Scan(&currentSKS); err != nil {
+		return err
+	}
+	if err := tx.QueryRow(ctx, `SELECT sks FROM courses WHERE id = $1`, courseID).Scan(&courseSKS); err != nil {
+		return err
+	}
+	if currentSKS+courseSKS > maxSKS {
+		return helper.BadRequest("total SKS melebihi batas maksimal")
+	}
+
 	query := `INSERT INTO enrollments (student_id, course_id, tahun_akademik) VALUES ($1, $2, $3)`
 	_, err := tx.Exec(ctx, query, studentID, courseID, tahunAkademik)
 	return err
