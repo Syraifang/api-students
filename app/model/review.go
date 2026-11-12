@@ -40,3 +40,9 @@ type ReviewPageMeta struct {
 	HasMore    bool   `json:"has_more"`
 	NextBefore string `json:"next_before"`
 }
+
+type ReviewSummary struct {
+    AverageRating float64        `json:"average_rating"`
+    TotalReviews  int            `json:"total_reviews"`
+    TagCounts     map[string]int `json:"tag_counts"`
+}
